@@ -10,6 +10,7 @@ import {
   getCourseBestPracticesChecklist,
   getCourseLaunchChecklist,
 } from '../utils/getChecklistForStatusBar';
+
 import {
   addNewCourseItem,
   deleteCourseItem,
@@ -32,6 +33,7 @@ import {
   pasteBlock,
   dismissNotification,
 } from './api';
+
 import {
   addSection,
   addSubsection,
@@ -52,6 +54,8 @@ import {
   reorderSectionList,
   setPasteFileNotices,
   updateCourseLaunchQueryStatus,
+  replaceOutlineItem,
+  updateItemDisplayName,
 } from './slice';
 
 const getErrorDetails = (error, dismissible = true) => {
@@ -72,12 +76,31 @@ const getErrorDetails = (error, dismissible = true) => {
   return errorInfo;
 };
 
+const EDIT_SAVE_TIMEOUT_MS = 20000;
+
+const withTimeout = (promise, timeoutMs) => new Promise((resolve, reject) => {
+  const timeout = setTimeout(() => {
+    reject(new Error(`edit save timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+
+  promise
+    .then((result) => {
+      clearTimeout(timeout);
+      resolve(result);
+    })
+    .catch((error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+});
+
 export function fetchCourseOutlineIndexQuery(courseId) {
   return async (dispatch) => {
     dispatch(updateOutlineIndexLoadingStatus({ status: RequestStatus.IN_PROGRESS }));
 
     try {
       const outlineIndex = await getCourseOutlineIndex(courseId);
+
       const {
         courseReleaseDate,
         courseStructure: {
@@ -85,8 +108,11 @@ export function fetchCourseOutlineIndexQuery(courseId) {
           videoSharingEnabled,
           videoSharingOptions,
           actions,
+          end,
+          hasChanges,
         },
       } = outlineIndex;
+
       dispatch(fetchOutlineIndexSuccess(outlineIndex));
       dispatch(updateClipboardData(outlineIndex.initialUserClipboard));
       dispatch(updateStatusBar({
@@ -94,15 +120,22 @@ export function fetchCourseOutlineIndexQuery(courseId) {
         highlightsEnabledForMessaging,
         videoSharingOptions,
         videoSharingEnabled,
+        endDate: end,
+        hasChanges,
       }));
+
       dispatch(updateCourseActions(actions));
 
       dispatch(updateOutlineIndexLoadingStatus({ status: RequestStatus.SUCCESSFUL }));
     } catch (error) {
-      dispatch(updateOutlineIndexLoadingStatus({
-        status: RequestStatus.FAILED,
-        errors: getErrorDetails(error, false),
-      }));
+      if (error.response && error.response.status === 403) {
+        dispatch(updateOutlineIndexLoadingStatus({ status: RequestStatus.DENIED }));
+      } else {
+        dispatch(updateOutlineIndexLoadingStatus({
+          status: RequestStatus.FAILED,
+          errors: getErrorDetails(error, false),
+        }));
+      }
     }
   };
 }
@@ -141,7 +174,6 @@ export function fetchCourseBestPracticesQuery({
     try {
       const data = await getCourseBestPractices({ courseId, excludeGraded, all });
       dispatch(fetchStatusBarChecklistSuccess(getCourseBestPracticesChecklist(data)));
-
       return true;
     } catch (error) {
       return false;
@@ -200,18 +232,20 @@ export function fetchCourseReindexQuery(courseId, reindexLink) {
   };
 }
 
-export function fetchCourseSectionQuery(sectionIds, shouldScroll = false) {
+export function fetchCourseSectionQuery(sectionIds) {
   return async (dispatch) => {
     dispatch(updateFetchSectionLoadingStatus({ status: RequestStatus.IN_PROGRESS }));
+
     try {
-      const sections = {};
       const results = await Promise.all(sectionIds.map((sectionId) => getCourseItem(sectionId)));
-      results.forEach((data) => {
-        // eslint-disable-next-line no-param-reassign
-        data.shouldScroll = shouldScroll;
-        sections[data.id] = data;
+
+      const sections = {};
+      results.forEach((section) => {
+        sections[section.id] = section;
       });
+
       dispatch(updateSectionList(sections));
+
       dispatch(updateFetchSectionLoadingStatus({ status: RequestStatus.SUCCESSFUL }));
     } catch (error) {
       dispatch(updateFetchSectionLoadingStatus({
@@ -222,62 +256,72 @@ export function fetchCourseSectionQuery(sectionIds, shouldScroll = false) {
   };
 }
 
+function refreshOutlineItemQuery(itemId) {
+  return async (dispatch) => {
+    const updatedItem = await getCourseItem(itemId);
+    dispatch(replaceOutlineItem({ item: updatedItem }));
+  };
+}
+
 export function updateCourseSectionHighlightsQuery(sectionId, highlights) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
 
     try {
-      await updateCourseSectionHighlights(sectionId, highlights).then(async (result) => {
-        if (result) {
-          await dispatch(fetchCourseSectionQuery([sectionId]));
-          dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
-          dispatch(hideProcessingNotification());
-        }
-      });
+      const result = await updateCourseSectionHighlights(sectionId, highlights);
+      if (result) {
+        await dispatch(refreshOutlineItemQuery(sectionId));
+        dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
+      } else {
+        dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+      }
     } catch (error) {
-      dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+    } finally {
+      dispatch(hideProcessingNotification());
     }
   };
 }
 
-export function publishCourseItemQuery(itemId, sectionId) {
+export function publishCourseItemQuery(itemId) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
 
     try {
-      await publishCourseSection(itemId).then(async (result) => {
-        if (result) {
-          await dispatch(fetchCourseSectionQuery([sectionId]));
-          dispatch(hideProcessingNotification());
-          dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
-        }
-      });
+      const result = await publishCourseSection(itemId);
+      if (result) {
+        await dispatch(refreshOutlineItemQuery(itemId));
+        dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
+      } else {
+        dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+      }
     } catch (error) {
-      dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+    } finally {
+      dispatch(hideProcessingNotification());
     }
   };
 }
 
-export function configureCourseItemQuery(sectionId, configureFn) {
+export function configureCourseItemQuery(itemId, configureFn) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
 
     try {
-      await configureFn().then(async (result) => {
-        if (result) {
-          await dispatch(fetchCourseSectionQuery([sectionId]));
-          dispatch(hideProcessingNotification());
-          dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
-        }
-      });
+      const result = await configureFn();
+      if (result) {
+        await dispatch(refreshOutlineItemQuery(itemId));
+        dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
+      } else {
+        dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+      }
     } catch (error) {
-      dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+    } finally {
+      dispatch(hideProcessingNotification());
     }
   };
 }
@@ -313,7 +357,7 @@ export function configureCourseSubsectionQuery(
 ) {
   return async (dispatch) => {
     dispatch(configureCourseItemQuery(
-      sectionId,
+      itemId,
       async () => configureCourseSubsection(
         itemId,
         isVisibleToStaffOnly,
@@ -337,41 +381,49 @@ export function configureCourseSubsectionQuery(
   };
 }
 
-export function configureCourseUnitQuery(itemId, sectionId, isVisibleToStaffOnly, groupAccess, discussionEnabled) {
+export function configureCourseUnitQuery(itemId, _sectionId, isVisibleToStaffOnly, groupAccess, discussionEnabled) {
   return async (dispatch) => {
     dispatch(configureCourseItemQuery(
-      sectionId,
+      itemId,
       async () => configureCourseUnit(itemId, isVisibleToStaffOnly, groupAccess, discussionEnabled),
     ));
   };
 }
-
-export function editCourseItemQuery(itemId, sectionId, displayName) {
+export function editCourseItemQuery(itemId, _sectionId, displayName) {
   return async (dispatch) => {
+    // eslint-disable-next-line no-console
+    console.log('AUTHORING-FORK version 1.5 save flow start', { itemId, displayName });
+    // eslint-disable-next-line no-console
+    console.log('AUTHORING-FORK v1.5 thunk start', { itemId, displayName });
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
+    // eslint-disable-next-line no-console
+    console.log('AUTHORING-FORK v1.5 saving status start', { status: RequestStatus.PENDING, itemId });
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
 
     try {
-      await editItemDisplayName(itemId, displayName).then(async (result) => {
-        if (result) {
-          await dispatch(fetchCourseSectionQuery([sectionId]));
-          dispatch(hideProcessingNotification());
-          dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
-        }
-      });
+      // eslint-disable-next-line no-console
+      console.log('AUTHORING-FORK v1.5 request sent', { itemId, timeoutMs: EDIT_SAVE_TIMEOUT_MS });
+      await withTimeout(editItemDisplayName(itemId, displayName), EDIT_SAVE_TIMEOUT_MS);
+      // eslint-disable-next-line no-console
+      console.log('AUTHORING-FORK v1.5 request resolved', { itemId });
+      dispatch(updateItemDisplayName({ itemId, displayName }));
+      dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
+      // eslint-disable-next-line no-console
+      console.log('AUTHORING-FORK v1.5 saving status end', { status: RequestStatus.SUCCESSFUL, itemId });
+      // eslint-disable-next-line no-console
+      console.log('AUTHORING-FORK version 1.5 save flow end', { itemId });
     } catch (error) {
-      dispatch(hideProcessingNotification());
+      // eslint-disable-next-line no-console
+      console.error('AUTHORING-FORK v1.5 request rejected', { itemId, error });
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+      // eslint-disable-next-line no-console
+      console.log('AUTHORING-FORK version 1.5 save flow error', { itemId });
+    } finally {
+      dispatch(hideProcessingNotification());
     }
   };
 }
 
-/**
- * Generic function to delete course item, see below wrapper funcs for specific implementations.
- * @param {string} itemId
- * @param {() => {}} deleteItemFn
- * @returns {}
- */
 function deleteCourseItemQuery(itemId, deleteItemFn) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
@@ -416,13 +468,6 @@ export function deleteCourseUnitQuery(unitId, subsectionId, sectionId) {
   };
 }
 
-/**
- * Generic function to duplicate any course item. See wrapper functions below for specific implementations.
- * @param {string} itemId
- * @param {string} parentLocator
- * @param {(locator) => Promise<any>} duplicateFn
- * @returns {}
- */
 function duplicateCourseItemQuery(itemId, parentLocator, duplicateFn) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
@@ -450,7 +495,6 @@ export function duplicateSectionQuery(sectionId, courseBlockId) {
       courseBlockId,
       async (locator) => {
         const duplicatedItem = await getCourseItem(locator);
-        // Page should scroll to newly duplicated item.
         duplicatedItem.shouldScroll = true;
         dispatch(duplicateSection({ id: sectionId, duplicatedItem }));
       },
@@ -463,7 +507,7 @@ export function duplicateSubsectionQuery(subsectionId, sectionId) {
     dispatch(duplicateCourseItemQuery(
       subsectionId,
       sectionId,
-      async () => dispatch(fetchCourseSectionQuery([sectionId], true)),
+      async () => dispatch(fetchCourseSectionQuery([sectionId])),
     ));
   };
 }
@@ -473,39 +517,29 @@ export function duplicateUnitQuery(unitId, subsectionId, sectionId) {
     dispatch(duplicateCourseItemQuery(
       unitId,
       subsectionId,
-      async () => dispatch(fetchCourseSectionQuery([sectionId], true)),
+      async () => dispatch(fetchCourseSectionQuery([sectionId])),
     ));
   };
 }
 
-/**
- * Generic function to add any course item. See wrapper functions below for specific implementations.
- * @param {string} parentLocator
- * @param {string} category
- * @param {string} displayName
- * @param {(data) => {}} addItemFn
- * @returns {}
- */
 function addNewCourseItemQuery(parentLocator, category, displayName, addItemFn) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
 
     try {
-      await addNewCourseItem(
-        parentLocator,
-        category,
-        displayName,
-      ).then(async (result) => {
-        if (result) {
-          await addItemFn(result);
-          dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
-          dispatch(hideProcessingNotification());
-        }
-      });
+      const result = await addNewCourseItem(parentLocator, category, displayName);
+
+      if (result) {
+        await addItemFn(result);
+        dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
+      } else {
+        dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+      }
     } catch (error) {
-      dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+    } finally {
+      dispatch(hideProcessingNotification());
     }
   };
 }
@@ -518,7 +552,6 @@ export function addNewSectionQuery(parentLocator) {
       COURSE_BLOCK_NAMES.chapter.name,
       async (result) => {
         const data = await getCourseItem(result.locator);
-        // Page should scroll to newly created section.
         data.shouldScroll = true;
         dispatch(addSection(data));
       },
@@ -528,13 +561,12 @@ export function addNewSectionQuery(parentLocator) {
 
 export function addNewSubsectionQuery(parentLocator) {
   return async (dispatch) => {
-    dispatch(addNewCourseItemQuery(
+    await dispatch(addNewCourseItemQuery(
       parentLocator,
       COURSE_BLOCK_NAMES.sequential.id,
       COURSE_BLOCK_NAMES.sequential.name,
       async (result) => {
         const data = await getCourseItem(result.locator);
-        // Page should scroll to newly created subsection.
         data.shouldScroll = true;
         dispatch(addSubsection({ parentLocator, data }));
       },
@@ -544,22 +576,20 @@ export function addNewSubsectionQuery(parentLocator) {
 
 export function addNewUnitQuery(parentLocator, callback) {
   return async (dispatch) => {
-    dispatch(addNewCourseItemQuery(
+    const thunk = addNewCourseItemQuery(
       parentLocator,
       COURSE_BLOCK_NAMES.vertical.id,
       COURSE_BLOCK_NAMES.vertical.name,
-      async (result) => callback(result.locator),
-    ));
+      async (result) => {
+        await callback(result.locator);
+      },
+    );
+
+    await dispatch(thunk);
   };
 }
 
-function setBlockOrderListQuery(
-  parentId,
-  blockIds,
-  apiFn,
-  restoreCallback,
-  successCallback,
-) {
+function setBlockOrderListQuery(parentId, blockIds, apiFn, restoreCallback, successCallback) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
@@ -594,8 +624,8 @@ export function setSectionOrderListQuery(courseId, sectionListIds, restoreCallba
 
 export function setSubsectionOrderListQuery(
   sectionId,
-  prevSectionId,
   subsectionListIds,
+  changedSections,
   restoreCallback,
 ) {
   return async (dispatch) => {
@@ -604,22 +634,15 @@ export function setSubsectionOrderListQuery(
       subsectionListIds,
       setCourseItemOrderList,
       restoreCallback,
-      () => {
-        const sectionIds = [sectionId];
-        if (prevSectionId && prevSectionId !== sectionId) {
-          sectionIds.push(prevSectionId);
-        }
-        dispatch(fetchCourseSectionQuery(sectionIds));
-      },
+      () => dispatch(updateSectionList(changedSections)),
     ));
   };
 }
 
 export function setUnitOrderListQuery(
-  sectionId,
   subsectionId,
-  prevSectionId,
   unitListIds,
+  changedSections,
   restoreCallback,
 ) {
   return async (dispatch) => {
@@ -628,13 +651,7 @@ export function setUnitOrderListQuery(
       unitListIds,
       setCourseItemOrderList,
       restoreCallback,
-      () => {
-        const sectionIds = [sectionId];
-        if (prevSectionId && prevSectionId !== sectionId) {
-          sectionIds.push(prevSectionId);
-        }
-        dispatch(fetchCourseSectionQuery(sectionIds));
-      },
+      () => dispatch(updateSectionList(changedSections)),
     ));
   };
 }
@@ -647,7 +664,7 @@ export function pasteClipboardContent(parentLocator, sectionId) {
     try {
       await pasteBlock(parentLocator).then(async (result) => {
         if (result) {
-          dispatch(fetchCourseSectionQuery([sectionId], true));
+          dispatch(fetchCourseSectionQuery([sectionId]));
           dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
           dispatch(hideProcessingNotification());
           dispatch(setPasteFileNotices(result?.staticFileNotices));

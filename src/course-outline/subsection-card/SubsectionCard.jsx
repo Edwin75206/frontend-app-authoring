@@ -49,7 +49,6 @@ const SubsectionCard = ({
   const isScrolledToElement = locatorId === subsection.id;
   const [isFormOpen, openForm, closeForm] = useToggle(false);
   const namePrefix = 'subsection';
-  const { sharedClipboardData, showPasteUnit } = useCopyToClipboard();
 
   const {
     id,
@@ -63,6 +62,7 @@ const SubsectionCard = ({
     enableCopyPasteUnits = false,
     proctoringExamConfigurationLink,
   } = subsection;
+  const { sharedClipboardData, showPasteUnit } = useCopyToClipboard(enableCopyPasteUnits);
 
   // re-create actions object for customizations
   const actions = { ...subsectionActions };

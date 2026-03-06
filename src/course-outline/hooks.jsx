@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { useToggle } from '@openedx/paragon';
@@ -72,6 +72,7 @@ const useCourseOutline = ({ courseId }) => {
     mfeProctoredExamSettingsUrl,
     advanceSettingsUrl,
   } = useSelector(getOutlineIndexData);
+
   const { outlineIndexLoadingStatus, reIndexLoadingStatus } = useSelector(getLoadingStatus);
   const statusBarData = useSelector(getStatusBarData);
   const savingStatus = useSelector(getSavingStatus);
@@ -94,6 +95,8 @@ const useCourseOutline = ({ courseId }) => {
   const [isDeleteModalOpen, openDeleteModal, closeDeleteModal] = useToggle(false);
 
   const isSavingStatusFailed = savingStatus === RequestStatus.FAILED || genericSavingStatus === RequestStatus.FAILED;
+
+  const editCommitLockRef = useRef(new Map());
 
   const handleCopyToClipboardClick = (usageKey) => {
     dispatch(copyToClipboard(usageKey));
@@ -165,13 +168,11 @@ const useCourseOutline = ({ courseId }) => {
   const handleHighlightsFormSubmit = (highlights) => {
     const dataToSend = Object.values(highlights).filter(Boolean);
     dispatch(updateCourseSectionHighlightsQuery(currentItem.id, dataToSend));
-
     closeHighlightsModal();
   };
 
   const handlePublishItemSubmit = () => {
-    dispatch(publishCourseItemQuery(currentItem.id, currentSection.id));
-
+    dispatch(publishCourseItemQuery(currentItem.id));
     closePublishModal();
   };
 
@@ -199,7 +200,70 @@ const useCourseOutline = ({ courseId }) => {
   };
 
   const handleEditSubmit = (itemId, sectionId, displayName) => {
-    dispatch(editCourseItemQuery(itemId, sectionId, displayName));
+    const key = `${itemId}|${sectionId}`;
+    const now = performance.now();
+    const prev = editCommitLockRef.current.get(key);
+    // eslint-disable-next-line no-console
+    console.log('AUTHORING-FORK v1.5 inline edit submit', {
+      itemId,
+      sectionId,
+      displayName,
+      key,
+      hasPrevious: Boolean(prev),
+      previousInFlight: Boolean(prev?.inFlight),
+    });
+
+    if (prev?.inFlight || (prev?.lastValue === displayName && (now - prev.lastAt) < 1200)) {
+      // eslint-disable-next-line no-console
+      console.log('AUTHORING-FORK v1.5 lock blocked submit', {
+        key,
+        reason: prev?.inFlight ? 'inflight' : 'duplicate_value_window',
+      });
+      return Promise.resolve();
+    }
+
+    editCommitLockRef.current.set(key, {
+      inFlight: true,
+      lastValue: displayName,
+      lastAt: now,
+    });
+    // eslint-disable-next-line no-console
+    console.log('AUTHORING-FORK v1.5 lock acquired', { key });
+
+    const release = () => {
+      const current = editCommitLockRef.current.get(key);
+      if (!current) {
+        return;
+      }
+      editCommitLockRef.current.set(key, { ...current, inFlight: false });
+      // eslint-disable-next-line no-console
+      console.log('AUTHORING-FORK v1.5 lock released', { key });
+    };
+
+    const watchdogMs = 20000;
+    const watchdog = setTimeout(() => {
+      // eslint-disable-next-line no-console
+      console.warn('AUTHORING-FORK v1.5 lock watchdog release', { key, watchdogMs });
+      release();
+    }, watchdogMs);
+
+    let action;
+    try {
+      action = dispatch(editCourseItemQuery(itemId, sectionId, displayName));
+    } catch (error) {
+      clearTimeout(watchdog);
+      release();
+      // eslint-disable-next-line no-console
+      console.error('AUTHORING-FORK v1.5 dispatch failed', { key, error });
+      return Promise.reject(error);
+    }
+    const request = action && typeof action.then === 'function' ? action : Promise.resolve(action);
+
+    return request
+      .finally(() => {
+        clearTimeout(watchdog);
+        release();
+      });
   };
 
   const handleDeleteItemSubmit = () => {
@@ -256,30 +320,28 @@ const useCourseOutline = ({ courseId }) => {
 
   const handleSubsectionDragAndDrop = (
     sectionId,
-    prevSectionId,
     subsectionListIds,
+    changedSections,
     restoreSectionList,
   ) => {
     dispatch(setSubsectionOrderListQuery(
       sectionId,
-      prevSectionId,
       subsectionListIds,
+      changedSections,
       restoreSectionList,
     ));
   };
 
   const handleUnitDragAndDrop = (
-    sectionId,
-    prevSectionId,
     subsectionId,
     unitListIds,
+    changedSections,
     restoreSectionList,
   ) => {
     dispatch(setUnitOrderListQuery(
-      sectionId,
       subsectionId,
-      prevSectionId,
       unitListIds,
+      changedSections,
       restoreSectionList,
     ));
   };

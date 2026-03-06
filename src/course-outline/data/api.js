@@ -2,7 +2,10 @@
 import { camelCaseObject, getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 
-const getApiBaseUrl = () => getConfig().STUDIO_BASE_URL;
+const getApiBaseUrl = () => {
+  const configuredBaseUrl = getConfig().STUDIO_BASE_URL;
+  return configuredBaseUrl;
+};
 
 export const getCourseOutlineIndexApiUrl = (courseId) => `${getApiBaseUrl()}/api/contentstore/v1/course_index/${courseId}`;
 
@@ -333,8 +336,16 @@ export async function configureCourseUnit(unitId, isVisibleToStaffOnly, groupAcc
  * @returns {Promise<Object>}
  */
 export async function editItemDisplayName(itemId, displayName) {
+  const requestUrl = getCourseItemApiUrl(itemId);
+  // eslint-disable-next-line no-console
+  console.log('AUTHORING-FORK v1.5 request details', {
+    method: 'POST',
+    baseUrl: getApiBaseUrl(),
+    url: requestUrl,
+  });
+
   const { data } = await getAuthenticatedHttpClient()
-    .post(getCourseItemApiUrl(itemId), {
+    .post(requestUrl, {
       metadata: {
         display_name: displayName,
       },

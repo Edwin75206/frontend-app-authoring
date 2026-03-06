@@ -5,6 +5,104 @@ import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 const getApiBaseUrl = () => getConfig().STUDIO_BASE_URL;
 
 /**
+ * ============================
+ * ✅ COUNT_IMPLICIT HARDENING
+ * - Dedup inflight
+ * - Cache with TTL
+ * - Skip window during rename (frontend lock)
+ * ============================
+ */
+const COUNT_IMPL_INFLIGHT = new Map(); // key -> Promise<any>
+const COUNT_IMPL_CACHE = new Map();    // key -> { data, at }
+const COUNT_IMPL_TTL_MS = 60_000;      // 60s
+let SKIP_COUNT_IMPLICIT_UNTIL = 0;     // timestamp ms
+
+/**
+ * Call this when you start a rename / quick inline edit.
+ * It prevents expensive count_implicit recalculation storms for a short window.
+ * @param {number} ms
+ */
+export function __skipCountImplicitFor(ms = 2500) {
+  SKIP_COUNT_IMPLICIT_UNTIL = Math.max(SKIP_COUNT_IMPLICIT_UNTIL, Date.now() + ms);
+  // eslint-disable-next-line no-console
+  console.warn('[AUTHORING-FORK] ✅ skip count_implicit window until', new Date(SKIP_COUNT_IMPLICIT_UNTIL).toISOString());
+}
+
+function stableKey(obj) {
+  const keys = Object.keys(obj || {}).sort();
+  const normalized = {};
+  keys.forEach((k) => { normalized[k] = obj[k]; });
+  return JSON.stringify(normalized);
+}
+
+async function getWithCountImplicitHardened(url, key, label) {
+  // 0) Skip-window: return cached if possible, else short-circuit
+  if (Date.now() < SKIP_COUNT_IMPLICIT_UNTIL) {
+    const cached = COUNT_IMPL_CACHE.get(key);
+    if (cached) {
+      // eslint-disable-next-line no-console
+      console.log('[AUTHORING-FORK] count_implicit 🟡 SKIPPED (window) -> cache hit', { label, key });
+      return cached.data;
+    }
+    // eslint-disable-next-line no-console
+    console.log('[AUTHORING-FORK] count_implicit 🟡 SKIPPED (window) -> no cache, return empty', { label, key });
+    return {}; // safe default; caller handles missing keys
+  }
+
+  // 1) Cache
+  const cached = COUNT_IMPL_CACHE.get(key);
+  if (cached && (Date.now() - cached.at) < COUNT_IMPL_TTL_MS) {
+    // eslint-disable-next-line no-console
+    console.log('[AUTHORING-FORK] count_implicit ✅ cache hit', { label, key });
+    return cached.data;
+  }
+
+  // 2) Inflight dedup
+  const inflight = COUNT_IMPL_INFLIGHT.get(key);
+  if (inflight) {
+    // eslint-disable-next-line no-console
+    console.warn('[AUTHORING-FORK] count_implicit ⛔ dedup inflight', { label, key });
+    return inflight;
+  }
+
+  const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const tag = `[AUTHORING-FORK] count_implicit:${label}#${runId}`;
+
+  // eslint-disable-next-line no-console
+  console.groupCollapsed(`${tag} START`);
+  // eslint-disable-next-line no-console
+  console.log('url:', url);
+  // eslint-disable-next-line no-console
+  console.log('key:', key);
+  // eslint-disable-next-line no-console
+  console.trace(`${tag} CALL STACK`);
+
+  const t0 = performance.now();
+
+  const p = (async () => {
+    try {
+      const { data } = await getAuthenticatedHttpClient().get(url);
+      const ms = Math.round(performance.now() - t0);
+      // eslint-disable-next-line no-console
+      console.log(`${tag} ✅ DONE in ${ms}ms`);
+      COUNT_IMPL_CACHE.set(key, { data, at: Date.now() });
+      return data;
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(`${tag} ❌ ERROR`, e);
+      throw e;
+    } finally {
+      COUNT_IMPL_INFLIGHT.delete(key);
+      // eslint-disable-next-line no-console
+      console.groupEnd();
+    }
+  })();
+
+  COUNT_IMPL_INFLIGHT.set(key, p);
+  return p;
+}
+
+/**
  * Get the URL used to fetch tags data from the "taxonomy tags" REST API
  * @param {number} taxonomyId
  * @param {{page?: number, searchTerm?: string, parentTag?: string}} options
@@ -23,11 +121,11 @@ export const getTaxonomyTagsApiUrl = (taxonomyId, options = {}) => {
   }
 
   // Load in the full tree if children at once, if we can:
-  // Note: do not combine this with page_size (we currently aren't using page_size)
   url.searchParams.append('full_depth_threshold', '1000');
 
   return url.href;
 };
+
 export const getContentTaxonomyTagsApiUrl = (contentId) => new URL(`api/content_tagging/v1/object_tags/${contentId}/`, getApiBaseUrl()).href;
 export const getXBlockContentDataApiURL = (contentId) => new URL(`/xblock/outline/${contentId}`, getApiBaseUrl()).href;
 export const getCourseContentDataApiURL = (contentId) => new URL(`/api/contentstore/v1/course_settings/${contentId}`, getApiBaseUrl()).href;
@@ -59,11 +157,15 @@ export async function getContentTaxonomyTagsData(contentId) {
 /**
  * Get the count of tags that are applied to the content object
  * @param {string} contentId The id of the content object to fetch the count of the applied tags for
- * @returns {Promise<number>}
+ * @returns {Promise<number|Object>}
  */
 export async function getContentTaxonomyTagsCount(contentId) {
-  const { data } = await getAuthenticatedHttpClient().get(getContentTaxonomyTagsCountApiUrl(contentId));
-  if (contentId in data) {
+  const url = getContentTaxonomyTagsCountApiUrl(contentId);
+  const key = stableKey({ kind: 'single', contentId, url });
+
+  const data = await getWithCountImplicitHardened(url, key, 'single');
+
+  if (data && contentId in data) {
     return camelCaseObject(data[contentId]);
   }
   return 0;
@@ -77,8 +179,6 @@ export async function getContentTaxonomyTagsCount(contentId) {
 export async function getContentData(contentId) {
   let url;
   if (contentId.startsWith('lib-collection:')) {
-    // This type of usage_key is not used to obtain collections
-    // is only used in tagging.
     return null;
   }
 

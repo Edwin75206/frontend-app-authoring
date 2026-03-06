@@ -110,16 +110,58 @@ const slice = createSlice({
     updateSavingStatus: (state, { payload }) => {
       state.savingStatus = payload.status;
     },
+
+    // OJO: esto se usa cuando realmente recargas secciones completas
     updateSectionList: (state, { payload }) => {
-      state.sectionsList = state.sectionsList.map((section) => (section.id in payload ? payload[section.id] : section));
+      state.sectionsList = state.sectionsList.map((section) => (
+        section.id in payload ? payload[section.id] : section
+      ));
     },
+
+    replaceOutlineItem: (state, { payload }) => {
+      const { item } = payload;
+      if (!item?.id) {
+        return;
+      }
+
+      state.sectionsList = state.sectionsList.map((section) => {
+        if (section.id === item.id) {
+          return item;
+        }
+
+        const subsectionIndex = section.childInfo?.children?.findIndex((subsection) => subsection.id === item.id);
+        if (subsectionIndex >= 0) {
+          section.childInfo.children[subsectionIndex] = item;
+          return section;
+        }
+
+        section.childInfo?.children?.forEach((subsection) => {
+          const unitIndex = subsection.childInfo?.children?.findIndex((unit) => unit.id === item.id);
+          if (unitIndex >= 0) {
+            subsection.childInfo.children[unitIndex] = item;
+          }
+        });
+
+        return section;
+      });
+
+      if (state.currentItem?.id === item.id) {
+        state.currentItem = item;
+      }
+      if (state.currentSection?.id === item.id) {
+        state.currentSection = item;
+      }
+      if (state.currentSubsection?.id === item.id) {
+        state.currentSubsection = item;
+      }
+    },
+
     setCurrentItem: (state, { payload }) => {
       state.currentItem = payload;
     },
     reorderSectionList: (state, { payload }) => {
       const sectionsList = [...state.sectionsList];
       sectionsList.sort((a, b) => payload.indexOf(a.id) - payload.indexOf(b.id));
-
       state.sectionsList = [...sectionsList];
     },
     setCurrentSection: (state, { payload }) => {
@@ -128,11 +170,9 @@ const slice = createSlice({
     setCurrentSubsection: (state, { payload }) => {
       state.currentSubsection = payload;
     },
+
     addSection: (state, { payload }) => {
-      state.sectionsList = [
-        ...state.sectionsList,
-        payload,
-      ];
+      state.sectionsList = [...state.sectionsList, payload];
     },
     addSubsection: (state, { payload }) => {
       state.sectionsList = state.sectionsList.map((section) => {
@@ -145,19 +185,76 @@ const slice = createSlice({
         return section;
       });
     },
+
+    updateItemDisplayName: (state, { payload }) => {
+      const { itemId, displayName } = payload;
+      let isUpdated = false;
+
+      for (let i = 0; i < state.sectionsList.length && !isUpdated; i += 1) {
+        const section = state.sectionsList[i];
+        if (section.id === itemId) {
+          section.displayName = displayName;
+          isUpdated = true;
+          break;
+        }
+
+        const subsections = section.childInfo?.children || [];
+        for (let j = 0; j < subsections.length && !isUpdated; j += 1) {
+          const subsection = subsections[j];
+          if (subsection.id === itemId) {
+            subsection.displayName = displayName;
+            isUpdated = true;
+            break;
+          }
+
+          const units = subsection.childInfo?.children || [];
+          for (let k = 0; k < units.length; k += 1) {
+            const unit = units[k];
+            if (unit.id === itemId) {
+              unit.displayName = displayName;
+              isUpdated = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (state.currentItem?.id === itemId) {
+        state.currentItem.displayName = displayName;
+      }
+    },
+
+    /**
+     * Insert a unit (vertical) into a subsection (sequential) without refetching.
+     * payload: { subsectionId, unitData }
+     */
+    addUnit: (state, { payload }) => {
+      const { subsectionId, unitData } = payload;
+
+      state.sectionsList = state.sectionsList.map((section) => {
+        section.childInfo?.children?.forEach((subsection) => {
+          if (subsection.id === subsectionId) {
+            // Evitar duplicados si llega dos veces
+            const existing = subsection.childInfo?.children || [];
+            subsection.childInfo.children = [
+              ...existing.filter((u) => u.id !== unitData.id),
+              unitData,
+            ];
+          }
+        });
+        return section;
+      });
+    },
+
     deleteSection: (state, { payload }) => {
-      state.sectionsList = state.sectionsList.filter(
-        ({ id }) => id !== payload.itemId,
-      );
+      state.sectionsList = state.sectionsList.filter(({ id }) => id !== payload.itemId);
     },
     deleteSubsection: (state, { payload }) => {
       state.sectionsList = state.sectionsList.map((section) => {
         if (section.id !== payload.sectionId) {
           return section;
         }
-        section.childInfo.children = section.childInfo.children.filter(
-          ({ id }) => id !== payload.itemId,
-        );
+        section.childInfo.children = section.childInfo.children.filter(({ id }) => id !== payload.itemId);
         return section;
       });
     },
@@ -166,18 +263,19 @@ const slice = createSlice({
         if (section.id !== payload.sectionId) {
           return section;
         }
+
         section.childInfo.children = section.childInfo.children.map((subsection) => {
           if (subsection.id !== payload.subsectionId) {
             return subsection;
           }
-          subsection.childInfo.children = subsection.childInfo.children.filter(
-            ({ id }) => id !== payload.itemId,
-          );
+          subsection.childInfo.children = subsection.childInfo.children.filter(({ id }) => id !== payload.itemId);
           return subsection;
         });
+
         return section;
       });
     },
+
     duplicateSection: (state, { payload }) => {
       state.sectionsList = state.sectionsList.reduce((result, currentValue) => {
         if (currentValue.id === payload.id) {
@@ -186,6 +284,7 @@ const slice = createSlice({
         return [...result, currentValue];
       }, []);
     },
+
     setPasteFileNotices: (state, { payload }) => {
       state.pasteFileNotices = payload;
     },
@@ -200,6 +299,7 @@ const slice = createSlice({
 export const {
   addSection,
   addSubsection,
+
   fetchOutlineIndexSuccess,
   updateOutlineIndexLoadingStatus,
   updateReindexLoadingStatus,
@@ -211,21 +311,23 @@ export const {
   updateCourseLaunchQueryStatus,
   updateSavingStatus,
   updateSectionList,
+  replaceOutlineItem,
   setCurrentItem,
   setCurrentSection,
   setCurrentSubsection,
+
+  updateItemDisplayName,
+  addUnit,
+
   deleteSection,
   deleteSubsection,
   deleteUnit,
   duplicateSection,
   reorderSectionList,
-  reorderSubsectionList,
-  reorderUnitList,
+
   setPasteFileNotices,
   removePasteFileNotices,
   dismissError,
 } = slice.actions;
 
-export const {
-  reducer,
-} = slice;
+export const { reducer } = slice;

@@ -59,6 +59,7 @@ const CardHeader = ({
   const [searchParams] = useSearchParams();
   const [titleValue, setTitleValue] = useState(title);
   const cardHeaderRef = useRef(null);
+  const skipNextBlurSubmitRef = useRef(false);
   const [isManageTagsDrawerOpen, openManageTagsDrawer, closeManageTagsDrawer] = useToggle(false);
 
   // Use studio url as base if proctoringExamConfigurationLink is a relative link
@@ -117,9 +118,16 @@ const CardHeader = ({
               name="displayName"
               onChange={(e) => setTitleValue(e.target.value)}
               aria-label="edit field"
-              onBlur={() => onEditSubmit(titleValue)}
+              onBlur={() => {
+                if (skipNextBlurSubmitRef.current) {
+                  skipNextBlurSubmitRef.current = false;
+                  return;
+                }
+                onEditSubmit(titleValue);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
+                  skipNextBlurSubmitRef.current = true;
                   onEditSubmit(titleValue);
                 }
               }}

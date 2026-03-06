@@ -7,6 +7,19 @@ import { updateClipboardData } from '../../data/slice';
 import { CLIPBOARD_STATUS, STRUCTURAL_XBLOCK_TYPES, STUDIO_CLIPBOARD_CHANNEL } from '../../../constants';
 import { getClipboardData } from '../../data/selectors';
 
+let clipboardFetchInFlight = null;
+
+const getClipboardWithDedupe = () => {
+  if (!clipboardFetchInFlight) {
+    clipboardFetchInFlight = getClipboard()
+      .finally(() => {
+        clipboardFetchInFlight = null;
+      });
+  }
+
+  return clipboardFetchInFlight;
+};
+
 /**
  * Custom React hook for managing clipboard functionality.
  *
@@ -37,10 +50,18 @@ const useCopyToClipboard = (canEdit = true) => {
   // Called on initial render to fetch and populate the initial clipboard data in redux state.
   // Without this, the initial clipboard data redux state is always null.
   useEffect(() => {
+    if (!canEdit || clipboardData) {
+      return () => {};
+    }
+
+    let isSubscribed = true;
+
     const fetchInitialClipboardData = async () => {
       try {
-        const userClipboard = await getClipboard();
-        dispatch(updateClipboardData(userClipboard));
+        const userClipboard = await getClipboardWithDedupe();
+        if (isSubscribed) {
+          dispatch(updateClipboardData(userClipboard));
+        }
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error(`Failed to fetch initial clipboard data: ${error}`);
@@ -48,7 +69,10 @@ const useCopyToClipboard = (canEdit = true) => {
     };
 
     fetchInitialClipboardData();
-  }, [dispatch]);
+    return () => {
+      isSubscribed = false;
+    };
+  }, [canEdit, clipboardData, dispatch]);
 
   useEffect(() => {
     // Handle updates to clipboard data

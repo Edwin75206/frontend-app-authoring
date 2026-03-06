@@ -125,6 +125,11 @@ const CourseOutline = ({ courseId }) => {
   const [toastMessage, setToastMessage] = useState(/** @type{null|string} */ (null));
 
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('AUTHORING-FORK version 1.5 loaded');
+  }, []);
+
+  useEffect(() => {
     // Wait for the course data to load before exporting tags.
     if (courseId && courseName && location.hash === '#export-tags') {
       setToastMessage(intl.formatMessage(messages.exportTagsCreatingToastMessage));
@@ -185,10 +190,17 @@ const CourseOutline = ({ courseId }) => {
     const [sectionsCopy, newSubsections] = fn(...args);
     if (newSubsections && sectionId) {
       setSections(sectionsCopy);
+      const changedSections = [section.id, sectionId].reduce((result, id) => {
+        const changedSection = sectionsCopy.find((item) => item.id === id);
+        if (changedSection) {
+          return { ...result, [id]: changedSection };
+        }
+        return result;
+      }, {});
       handleSubsectionDragAndDrop(
         sectionId,
-        section.id,
         newSubsections.map(subsection => subsection.id),
+        changedSections,
         restoreSectionList,
       );
     }
@@ -210,11 +222,17 @@ const CourseOutline = ({ courseId }) => {
     const [sectionsCopy, newUnits] = fn(...args);
     if (newUnits && sectionId && subsectionId) {
       setSections(sectionsCopy);
+      const changedSections = [section.id, sectionId].reduce((result, id) => {
+        const changedSection = sectionsCopy.find((item) => item.id === id);
+        if (changedSection) {
+          return { ...result, [id]: changedSection };
+        }
+        return result;
+      }, {});
       handleUnitDragAndDrop(
-        sectionId,
-        section.id,
         subsectionId,
         newUnits.map(unit => unit.id),
+        changedSections,
         restoreSectionList,
       );
     }
