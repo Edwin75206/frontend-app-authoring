@@ -634,7 +634,7 @@ export function setSubsectionOrderListQuery(
       subsectionListIds,
       setCourseItemOrderList,
       restoreCallback,
-      () => dispatch(updateSectionList(changedSections)),
+      () => dispatch(fetchCourseSectionQuery(Object.keys(changedSections))),
     ));
   };
 }
@@ -651,7 +651,7 @@ export function setUnitOrderListQuery(
       unitListIds,
       setCourseItemOrderList,
       restoreCallback,
-      () => dispatch(updateSectionList(changedSections)),
+      () => dispatch(fetchCourseSectionQuery(Object.keys(changedSections))),
     ));
   };
 }
