@@ -4,6 +4,13 @@ import { createSlice } from '@reduxjs/toolkit';
 import { VIDEO_SHARING_OPTIONS } from '../constants';
 import { RequestStatus } from '../../data/constants';
 
+const setOutlineSectionsState = (state, sections) => {
+  state.sectionsList = sections;
+  if (state.outlineIndexData?.courseStructure?.childInfo) {
+    state.outlineIndexData.courseStructure.childInfo.children = sections;
+  }
+};
+
 const slice = createSlice({
   name: 'courseOutline',
   initialState: {
@@ -51,7 +58,7 @@ const slice = createSlice({
   reducers: {
     fetchOutlineIndexSuccess: (state, { payload }) => {
       state.outlineIndexData = payload;
-      state.sectionsList = payload.courseStructure?.childInfo?.children || [];
+      setOutlineSectionsState(state, payload.courseStructure?.childInfo?.children || []);
       state.isCustomRelativeDatesActive = payload.isCustomRelativeDatesActive;
       state.enableProctoredExams = payload.courseStructure?.enableProctoredExams;
     },
@@ -113,9 +120,10 @@ const slice = createSlice({
 
     // OJO: esto se usa cuando realmente recargas secciones completas
     updateSectionList: (state, { payload }) => {
-      state.sectionsList = state.sectionsList.map((section) => (
+      const nextSections = state.sectionsList.map((section) => (
         section.id in payload ? payload[section.id] : section
       ));
+      setOutlineSectionsState(state, nextSections);
     },
 
     replaceOutlineItem: (state, { payload }) => {
@@ -124,7 +132,7 @@ const slice = createSlice({
         return;
       }
 
-      state.sectionsList = state.sectionsList.map((section) => {
+      const nextSections = state.sectionsList.map((section) => {
         if (section.id === item.id) {
           return item;
         }
@@ -144,6 +152,7 @@ const slice = createSlice({
 
         return section;
       });
+      setOutlineSectionsState(state, nextSections);
 
       if (state.currentItem?.id === item.id) {
         state.currentItem = item;
@@ -162,7 +171,7 @@ const slice = createSlice({
     reorderSectionList: (state, { payload }) => {
       const sectionsList = [...state.sectionsList];
       sectionsList.sort((a, b) => payload.indexOf(a.id) - payload.indexOf(b.id));
-      state.sectionsList = [...sectionsList];
+      setOutlineSectionsState(state, [...sectionsList]);
     },
     setCurrentSection: (state, { payload }) => {
       state.currentSection = payload;
@@ -189,9 +198,10 @@ const slice = createSlice({
     updateItemDisplayName: (state, { payload }) => {
       const { itemId, displayName } = payload;
       let isUpdated = false;
+      const nextSections = [...state.sectionsList];
 
-      for (let i = 0; i < state.sectionsList.length && !isUpdated; i += 1) {
-        const section = state.sectionsList[i];
+      for (let i = 0; i < nextSections.length && !isUpdated; i += 1) {
+        const section = nextSections[i];
         if (section.id === itemId) {
           section.displayName = displayName;
           isUpdated = true;
@@ -217,6 +227,10 @@ const slice = createSlice({
             }
           }
         }
+      }
+
+      if (isUpdated) {
+        setOutlineSectionsState(state, nextSections);
       }
 
       if (state.currentItem?.id === itemId) {

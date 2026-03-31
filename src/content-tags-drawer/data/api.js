@@ -24,8 +24,6 @@ let SKIP_COUNT_IMPLICIT_UNTIL = 0;     // timestamp ms
  */
 export function __skipCountImplicitFor(ms = 2500) {
   SKIP_COUNT_IMPLICIT_UNTIL = Math.max(SKIP_COUNT_IMPLICIT_UNTIL, Date.now() + ms);
-  // eslint-disable-next-line no-console
-  console.warn('[AUTHORING-FORK] ✅ skip count_implicit window until', new Date(SKIP_COUNT_IMPLICIT_UNTIL).toISOString());
 }
 
 function stableKey(obj) {
@@ -35,66 +33,35 @@ function stableKey(obj) {
   return JSON.stringify(normalized);
 }
 
-async function getWithCountImplicitHardened(url, key, label) {
+async function getWithCountImplicitHardened(url, key, _label) {
   // 0) Skip-window: return cached if possible, else short-circuit
   if (Date.now() < SKIP_COUNT_IMPLICIT_UNTIL) {
     const cached = COUNT_IMPL_CACHE.get(key);
     if (cached) {
-      // eslint-disable-next-line no-console
-      console.log('[AUTHORING-FORK] count_implicit 🟡 SKIPPED (window) -> cache hit', { label, key });
       return cached.data;
     }
-    // eslint-disable-next-line no-console
-    console.log('[AUTHORING-FORK] count_implicit 🟡 SKIPPED (window) -> no cache, return empty', { label, key });
     return {}; // safe default; caller handles missing keys
   }
 
   // 1) Cache
   const cached = COUNT_IMPL_CACHE.get(key);
   if (cached && (Date.now() - cached.at) < COUNT_IMPL_TTL_MS) {
-    // eslint-disable-next-line no-console
-    console.log('[AUTHORING-FORK] count_implicit ✅ cache hit', { label, key });
     return cached.data;
   }
 
   // 2) Inflight dedup
   const inflight = COUNT_IMPL_INFLIGHT.get(key);
   if (inflight) {
-    // eslint-disable-next-line no-console
-    console.warn('[AUTHORING-FORK] count_implicit ⛔ dedup inflight', { label, key });
     return inflight;
   }
-
-  const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const tag = `[AUTHORING-FORK] count_implicit:${label}#${runId}`;
-
-  // eslint-disable-next-line no-console
-  console.groupCollapsed(`${tag} START`);
-  // eslint-disable-next-line no-console
-  console.log('url:', url);
-  // eslint-disable-next-line no-console
-  console.log('key:', key);
-  // eslint-disable-next-line no-console
-  console.trace(`${tag} CALL STACK`);
-
-  const t0 = performance.now();
 
   const p = (async () => {
     try {
       const { data } = await getAuthenticatedHttpClient().get(url);
-      const ms = Math.round(performance.now() - t0);
-      // eslint-disable-next-line no-console
-      console.log(`${tag} ✅ DONE in ${ms}ms`);
       COUNT_IMPL_CACHE.set(key, { data, at: Date.now() });
       return data;
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(`${tag} ❌ ERROR`, e);
-      throw e;
     } finally {
       COUNT_IMPL_INFLIGHT.delete(key);
-      // eslint-disable-next-line no-console
-      console.groupEnd();
     }
   })();
 

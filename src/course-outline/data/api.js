@@ -337,12 +337,6 @@ export async function configureCourseUnit(unitId, isVisibleToStaffOnly, groupAcc
  */
 export async function editItemDisplayName(itemId, displayName) {
   const requestUrl = getCourseItemApiUrl(itemId);
-  // eslint-disable-next-line no-console
-  console.log('AUTHORING-FORK v1.5 request details', {
-    method: 'POST',
-    baseUrl: getApiBaseUrl(),
-    url: requestUrl,
-  });
 
   const { data } = await getAuthenticatedHttpClient()
     .post(requestUrl, {

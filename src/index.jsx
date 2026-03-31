@@ -102,6 +102,8 @@ const App = () => {
 };
 
 subscribe(APP_READY, () => {
+  // eslint-disable-next-line no-console
+  console.log('AUTHORING 2.0 FIX SAVING AND ASCENDER');
   ReactDOM.render(
     (<App />),
     document.getElementById('root'),

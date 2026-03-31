@@ -203,22 +203,8 @@ const useCourseOutline = ({ courseId }) => {
     const key = `${itemId}|${sectionId}`;
     const now = performance.now();
     const prev = editCommitLockRef.current.get(key);
-    // eslint-disable-next-line no-console
-    console.log('AUTHORING-FORK v1.5 inline edit submit', {
-      itemId,
-      sectionId,
-      displayName,
-      key,
-      hasPrevious: Boolean(prev),
-      previousInFlight: Boolean(prev?.inFlight),
-    });
 
     if (prev?.inFlight || (prev?.lastValue === displayName && (now - prev.lastAt) < 1200)) {
-      // eslint-disable-next-line no-console
-      console.log('AUTHORING-FORK v1.5 lock blocked submit', {
-        key,
-        reason: prev?.inFlight ? 'inflight' : 'duplicate_value_window',
-      });
       return Promise.resolve();
     }
 
@@ -227,8 +213,6 @@ const useCourseOutline = ({ courseId }) => {
       lastValue: displayName,
       lastAt: now,
     });
-    // eslint-disable-next-line no-console
-    console.log('AUTHORING-FORK v1.5 lock acquired', { key });
 
     const release = () => {
       const current = editCommitLockRef.current.get(key);
@@ -236,14 +220,10 @@ const useCourseOutline = ({ courseId }) => {
         return;
       }
       editCommitLockRef.current.set(key, { ...current, inFlight: false });
-      // eslint-disable-next-line no-console
-      console.log('AUTHORING-FORK v1.5 lock released', { key });
     };
 
     const watchdogMs = 20000;
     const watchdog = setTimeout(() => {
-      // eslint-disable-next-line no-console
-      console.warn('AUTHORING-FORK v1.5 lock watchdog release', { key, watchdogMs });
       release();
     }, watchdogMs);
 
@@ -253,8 +233,6 @@ const useCourseOutline = ({ courseId }) => {
     } catch (error) {
       clearTimeout(watchdog);
       release();
-      // eslint-disable-next-line no-console
-      console.error('AUTHORING-FORK v1.5 dispatch failed', { key, error });
       return Promise.reject(error);
     }
     const request = action && typeof action.then === 'function' ? action : Promise.resolve(action);

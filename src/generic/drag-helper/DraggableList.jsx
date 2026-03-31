@@ -252,10 +252,13 @@ const DraggableList = ({
               activeInfo.index,
               overInfo.index,
             );
+            const changedSections = {
+              [activeInfo.parent.id]: prevCopy[activeInfo.parentIndex],
+            };
             handleSubsectionDragAndDrop(
               activeInfo.parent.id,
-              prevContainerInfo.current,
               result.map(subsection => subsection.id),
+              changedSections,
               restoreSectionList,
             );
             return prevCopy;
@@ -270,11 +273,13 @@ const DraggableList = ({
               activeInfo.index,
               overInfo.index,
             );
+            const changedSections = {
+              [activeInfo.grandParent.id]: prevCopy[activeInfo.grandParentIndex],
+            };
             handleUnitDragAndDrop(
-              activeInfo.grandParent.id,
-              prevContainerInfo.current,
               activeInfo.parent.id,
               result.map(unit => unit.id),
+              changedSections,
               restoreSectionList,
             );
             return prevCopy;

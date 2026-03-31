@@ -391,33 +391,15 @@ export function configureCourseUnitQuery(itemId, _sectionId, isVisibleToStaffOnl
 }
 export function editCourseItemQuery(itemId, _sectionId, displayName) {
   return async (dispatch) => {
-    // eslint-disable-next-line no-console
-    console.log('AUTHORING-FORK version 1.5 save flow start', { itemId, displayName });
-    // eslint-disable-next-line no-console
-    console.log('AUTHORING-FORK v1.5 thunk start', { itemId, displayName });
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
-    // eslint-disable-next-line no-console
-    console.log('AUTHORING-FORK v1.5 saving status start', { status: RequestStatus.PENDING, itemId });
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
 
     try {
-      // eslint-disable-next-line no-console
-      console.log('AUTHORING-FORK v1.5 request sent', { itemId, timeoutMs: EDIT_SAVE_TIMEOUT_MS });
       await withTimeout(editItemDisplayName(itemId, displayName), EDIT_SAVE_TIMEOUT_MS);
-      // eslint-disable-next-line no-console
-      console.log('AUTHORING-FORK v1.5 request resolved', { itemId });
       dispatch(updateItemDisplayName({ itemId, displayName }));
       dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
-      // eslint-disable-next-line no-console
-      console.log('AUTHORING-FORK v1.5 saving status end', { status: RequestStatus.SUCCESSFUL, itemId });
-      // eslint-disable-next-line no-console
-      console.log('AUTHORING-FORK version 1.5 save flow end', { itemId });
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('AUTHORING-FORK v1.5 request rejected', { itemId, error });
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
-      // eslint-disable-next-line no-console
-      console.log('AUTHORING-FORK version 1.5 save flow error', { itemId });
     } finally {
       dispatch(hideProcessingNotification());
     }
@@ -596,11 +578,9 @@ function setBlockOrderListQuery(parentId, blockIds, apiFn, restoreCallback, succ
 
     try {
       await apiFn(parentId, blockIds).then(async (result) => {
-        if (result) {
-          successCallback();
-          dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
-          dispatch(hideProcessingNotification());
-        }
+        successCallback();
+        dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
+        dispatch(hideProcessingNotification());
       });
     } catch (error) {
       restoreCallback();
@@ -608,6 +588,23 @@ function setBlockOrderListQuery(parentId, blockIds, apiFn, restoreCallback, succ
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
     }
   };
+}
+
+function getSectionUsageKeys(changedSections) {
+  const validSectionIds = (Array.isArray(changedSections) ? changedSections : Object.values(changedSections || {}))
+    .map((section) => {
+      if (typeof section === 'string') {
+        return section;
+      }
+      return section?.id;
+    })
+    .filter((id, index, allIds) => (
+      typeof id === 'string'
+      && id.startsWith('block-v1:')
+      && allIds.indexOf(id) === index
+    ));
+
+  return validSectionIds;
 }
 
 export function setSectionOrderListQuery(courseId, sectionListIds, restoreCallback) {
@@ -629,12 +626,16 @@ export function setSubsectionOrderListQuery(
   restoreCallback,
 ) {
   return async (dispatch) => {
+    const changedSectionIds = getSectionUsageKeys(changedSections);
+    dispatch(updateSectionList(changedSections));
     dispatch(setBlockOrderListQuery(
       sectionId,
       subsectionListIds,
       setCourseItemOrderList,
       restoreCallback,
-      () => dispatch(fetchCourseSectionQuery(Object.keys(changedSections))),
+      () => {
+        dispatch(fetchCourseSectionQuery(changedSectionIds));
+      },
     ));
   };
 }
@@ -646,12 +647,16 @@ export function setUnitOrderListQuery(
   restoreCallback,
 ) {
   return async (dispatch) => {
+    const changedSectionIds = getSectionUsageKeys(changedSections);
+    dispatch(updateSectionList(changedSections));
     dispatch(setBlockOrderListQuery(
       subsectionId,
       unitListIds,
       setCourseItemOrderList,
       restoreCallback,
-      () => dispatch(fetchCourseSectionQuery(Object.keys(changedSections))),
+      () => {
+        dispatch(fetchCourseSectionQuery(changedSectionIds));
+      },
     ));
   };
 }
