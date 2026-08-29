@@ -9,6 +9,11 @@ const messages = defineMessages({
     id: 'course-authoring.schedule.schedule-section.datepicker.utc',
     defaultMessage: 'UTC',
   },
+  datepickerTimezone: {
+    id: 'course-authoring.schedule.schedule-section.datepicker.timezone',
+    defaultMessage: '{timezone}',
+    description: 'Timezone shown next to the time picker; value is an IANA id or a configured label.',
+  },
 });
 
 export default messages;

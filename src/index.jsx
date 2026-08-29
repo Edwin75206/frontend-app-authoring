@@ -143,6 +143,12 @@ initialize({
         ENABLE_CHECKLIST_QUALITY: process.env.ENABLE_CHECKLIST_QUALITY || 'true',
         ENABLE_GRADING_METHOD_IN_PROBLEMS: process.env.ENABLE_GRADING_METHOD_IN_PROBLEMS === 'true',
         LIBRARY_SUPPORTED_BLOCKS: (process.env.LIBRARY_SUPPORTED_BLOCKS || 'problem,video,html').split(','),
+        // IANA timezone used to interpret and display every date entered in Studio
+        // (Schedule & Details, subsection release/due dates, course updates).
+        // Defaults to UTC to preserve upstream behaviour.
+        STUDIO_TIMEZONE: process.env.STUDIO_TIMEZONE || 'UTC',
+        // Optional human-readable label shown next to the pickers; defaults to STUDIO_TIMEZONE.
+        STUDIO_TIMEZONE_LABEL: process.env.STUDIO_TIMEZONE_LABEL || null,
       }, 'CourseAuthoringConfig');
     },
   },

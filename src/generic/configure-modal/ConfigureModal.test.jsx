@@ -66,7 +66,7 @@ describe('<ConfigureModal /> for Section', () => {
     expect(getByText(messages.basicTabTitle.defaultMessage)).toBeInTheDocument();
     expect(getByText(messages.visibilityTabTitle.defaultMessage)).toBeInTheDocument();
     expect(getByText(messages.releaseDate.defaultMessage)).toBeInTheDocument();
-    expect(getByText(messages.releaseTimeUTC.defaultMessage)).toBeInTheDocument();
+    expect(getByText(messages.releaseTimeUTC.defaultMessage.replace('{timezone}', 'UTC'))).toBeInTheDocument();
     expect(getByRole('button', { name: messages.cancelButton.defaultMessage })).toBeInTheDocument();
     expect(getByRole('button', { name: messages.saveButton.defaultMessage })).toBeInTheDocument();
   });
@@ -117,11 +117,11 @@ describe('<ConfigureModal /> for Subsection', () => {
     expect(getByText(messages.visibilityTabTitle.defaultMessage)).toBeInTheDocument();
     expect(getByText(messages.advancedTabTitle.defaultMessage)).toBeInTheDocument();
     expect(getByText(messages.releaseDate.defaultMessage)).toBeInTheDocument();
-    expect(getByText(messages.releaseTimeUTC.defaultMessage)).toBeInTheDocument();
+    expect(getByText(messages.releaseTimeUTC.defaultMessage.replace('{timezone}', 'UTC'))).toBeInTheDocument();
     expect(getByText(messages.grading.defaultMessage)).toBeInTheDocument();
     expect(getByText(messages.gradeAs.defaultMessage)).toBeInTheDocument();
     expect(getByText(messages.dueDate.defaultMessage)).toBeInTheDocument();
-    expect(getByText(messages.dueTimeUTC.defaultMessage)).toBeInTheDocument();
+    expect(getByText(messages.dueTimeUTC.defaultMessage.replace('{timezone}', 'UTC'))).toBeInTheDocument();
     expect(getByRole('button', { name: messages.cancelButton.defaultMessage })).toBeInTheDocument();
     expect(getByRole('button', { name: messages.saveButton.defaultMessage })).toBeInTheDocument();
   });

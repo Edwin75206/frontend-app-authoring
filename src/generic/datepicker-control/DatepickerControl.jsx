@@ -6,7 +6,9 @@ import { Form, Icon } from '@openedx/paragon';
 import { Calendar } from '@openedx/paragon/icons';
 import { useIntl } from '@edx/frontend-platform/i18n';
 
-import { convertToDateFromString, convertToStringFromDate, isValidDate } from '../../utils';
+import {
+  convertToDateFromString, convertToStringFromDate, isValidDate, getStudioTimezoneLabel,
+} from '../../utils';
 import { DATE_FORMAT, TIME_FORMAT } from '../../constants';
 import messages from './messages';
 
@@ -39,7 +41,7 @@ const DatepickerControl = ({
         {label}
         {showUTC && (
           <span className="h6 font-weight-normal text-gray-500 mb-0">
-            ({intl.formatMessage(messages.datepickerUTC)})
+            ({intl.formatMessage(messages.datepickerTimezone, { timezone: getStudioTimezoneLabel() })})
           </span>
         )}
       </Form.Label>

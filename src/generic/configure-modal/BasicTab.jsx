@@ -3,6 +3,7 @@ import { Stack, Form } from '@openedx/paragon';
 import { FormattedMessage, injectIntl, useIntl } from '@edx/frontend-platform/i18n';
 
 import { DatepickerControl, DATEPICKER_TYPES } from '../datepicker-control';
+import { getStudioTimezoneLabel } from '../../utils';
 import messages from './messages';
 
 const BasicTab = ({
@@ -44,7 +45,7 @@ const BasicTab = ({
               <DatepickerControl
                 type={DATEPICKER_TYPES.time}
                 value={releaseDate}
-                label={intl.formatMessage(messages.releaseTimeUTC)}
+                label={intl.formatMessage(messages.releaseTimeUTC, { timezone: getStudioTimezoneLabel() })}
                 controlName="start-time"
                 onChange={(val) => setFieldValue('releaseDate', val)}
               />
@@ -85,7 +86,7 @@ const BasicTab = ({
                   <DatepickerControl
                     type={DATEPICKER_TYPES.time}
                     value={dueDate}
-                    label={intl.formatMessage(messages.dueTimeUTC)}
+                    label={intl.formatMessage(messages.dueTimeUTC, { timezone: getStudioTimezoneLabel() })}
                     controlName="start-time"
                     onChange={(val) => setFieldValue('dueDate', val)}
                   />
