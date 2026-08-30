@@ -7,6 +7,7 @@ import GradingPolicyAlert from './GradingPolicyAlert';
 import GradingTypeAndDueDate from './GradingTypeAndDueDate';
 import StatusMessages from './StatusMessages';
 import HideAfterDueMessage from './HideAfterDueMessage';
+import { formatDateForStudioTimezone } from './date-utils';
 
 const XBlockStatus = ({
   isSelfPaced,
@@ -18,6 +19,7 @@ const XBlockStatus = ({
     explanatoryMessage,
     releasedToStudents,
     releaseDate,
+    start,
     isProctoredExam,
     isOnboardingExam,
     isPracticeExam,
@@ -28,6 +30,7 @@ const XBlockStatus = ({
     hasPartitionGroupComponents,
     format: gradingType,
     dueDate,
+    due,
     relativeWeeksDue,
     isTimeLimited,
     graded,
@@ -37,6 +40,8 @@ const XBlockStatus = ({
 
   const isInstructorPaced = !isSelfPaced;
   const isVertical = category === COURSE_BLOCK_NAMES.vertical.id;
+  const releaseDateForDisplay = formatDateForStudioTimezone(start, releaseDate);
+  const dueDateForDisplay = formatDateForStudioTimezone(due, dueDate);
 
   return (
     <div className="text-secondary-400 x-small mb-1">
@@ -44,7 +49,7 @@ const XBlockStatus = ({
         <ReleaseStatus
           isInstructorPaced={isInstructorPaced}
           explanatoryMessage={explanatoryMessage}
-          releaseDate={releaseDate}
+          releaseDate={releaseDateForDisplay}
           releasedToStudents={releasedToStudents}
         />
       )}
@@ -59,7 +64,7 @@ const XBlockStatus = ({
           isPracticeExam={isPracticeExam}
           graded={graded}
           gradingType={gradingType}
-          dueDate={dueDate}
+          dueDate={dueDateForDisplay}
           relativeWeeksDue={relativeWeeksDue}
         />
       )}
@@ -95,6 +100,7 @@ XBlockStatus.propTypes = {
     explanatoryMessage: PropTypes.string,
     releasedToStudents: PropTypes.bool,
     releaseDate: PropTypes.string,
+    start: PropTypes.string,
     isProctoredExam: PropTypes.bool,
     isOnboardingExam: PropTypes.bool,
     isPracticeExam: PropTypes.bool,
@@ -111,6 +117,7 @@ XBlockStatus.propTypes = {
     hasPartitionGroupComponents: PropTypes.bool,
     format: PropTypes.string,
     dueDate: PropTypes.string,
+    due: PropTypes.string,
     relativeWeeksDue: PropTypes.number,
     isTimeLimited: PropTypes.bool,
     graded: PropTypes.bool,

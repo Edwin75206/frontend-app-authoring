@@ -2,7 +2,9 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import { IntlProvider } from '@edx/frontend-platform/i18n';
 import { AppProvider } from '@edx/frontend-platform/react';
-import { initializeMockApp } from '@edx/frontend-platform';
+import {
+  getConfig, initializeMockApp, setConfig,
+} from '@edx/frontend-platform';
 
 import initializeStore from '../../store';
 import XBlockStatus from './XBlockStatus';
@@ -28,6 +30,7 @@ const section = {
   explanatoryMessage: '',
   releasedToStudents: true,
   releaseDate: 'Feb 05, 2013 at 01:00 UTC',
+  start: '2026-08-27T13:00:00Z',
   isProctoredExam: false,
   isOnboardingExam: false,
   isPracticeExam: false,
@@ -39,11 +42,22 @@ const section = {
   hasPartitionGroupComponents: false,
   format: 'Homework',
   dueDate: 'Dec 28, 2023 at 22:00 UTC',
+  due: '2026-08-28T01:00:00Z',
   isTimeLimited: true,
   graded: true,
   courseGraders: ['Homework'],
   hideAfterDue: true,
 };
+
+const timezoneLabel = 'Hora de la Ciudad de México';
+
+beforeAll(() => {
+  setConfig({
+    ...getConfig(),
+    STUDIO_TIMEZONE: 'America/Mexico_City',
+    STUDIO_TIMEZONE_LABEL: timezoneLabel,
+  });
+});
 
 const renderComponent = (props) => render(
   <AppProvider store={store}>
@@ -92,7 +106,7 @@ describe('<XBlockStatus /> for Instructor paced Section', () => {
     const releaseStatusDiv = queryByTestId('release-status-div');
     expect(releaseStatusDiv).toBeInTheDocument();
     expect(releaseStatusDiv).toHaveTextContent(
-      `${messages.releasedLabel.defaultMessage}${section.releaseDate}`,
+      `${messages.releasedLabel.defaultMessage}27 Aug 2026, 07:00 ${timezoneLabel}`,
     );
 
     // check grading type
@@ -107,7 +121,7 @@ describe('<XBlockStatus /> for Instructor paced Section', () => {
     const dueDateDiv = queryByTestId('due-date-div');
     expect(dueDateDiv).toBeInTheDocument();
     expect(dueDateDiv).toHaveTextContent(
-      `${messages.dueLabel.defaultMessage} ${section.dueDate}`,
+      `${messages.dueLabel.defaultMessage} 27 Aug 2026, 19:00 ${timezoneLabel}`,
     );
     // self paced weeks should not be visible as
     // isSelfPaced is false as well as isCustomRelativeDatesActive is false
@@ -199,6 +213,7 @@ const subsection = {
   explanatoryMessage: '',
   releasedToStudents: false,
   releaseDate: 'Feb 05, 2025 at 01:00 UTC',
+  start: '2026-08-28T05:30:00Z',
   isProctoredExam: false,
   isOnboardingExam: false,
   isPracticeExam: false,
@@ -221,6 +236,7 @@ const subsection = {
   hasPartitionGroupComponents: false,
   format: 'Homework',
   dueDate: 'Dec 28, 2023 at 22:00 UTC',
+  due: '2026-08-27T13:00:00Z',
   isTimeLimited: true,
   graded: true,
   courseGraders: ['Homework'],
@@ -249,7 +265,7 @@ describe('<XBlockStatus /> for Instructor paced Subsection', () => {
     const releaseStatusDiv = queryByTestId('release-status-div');
     expect(releaseStatusDiv).toBeInTheDocument();
     expect(releaseStatusDiv).toHaveTextContent(
-      `${messages.scheduledLabel.defaultMessage}${subsection.releaseDate}`,
+      `${messages.scheduledLabel.defaultMessage}27 Aug 2026, 23:30 ${timezoneLabel}`,
     );
 
     // check grading type
@@ -264,7 +280,7 @@ describe('<XBlockStatus /> for Instructor paced Subsection', () => {
     const dueDateDiv = queryByTestId('due-date-div');
     expect(dueDateDiv).toBeInTheDocument();
     expect(dueDateDiv).toHaveTextContent(
-      `${messages.dueLabel.defaultMessage} ${subsection.dueDate}`,
+      `${messages.dueLabel.defaultMessage} 27 Aug 2026, 07:00 ${timezoneLabel}`,
     );
     // self paced weeks should not be visible as
     // isSelfPaced is false as well as isCustomRelativeDatesActive is false
@@ -348,7 +364,7 @@ describe('<XBlockStatus /> for Instructor paced Subsection', () => {
     const dueDateDiv = queryByTestId('due-date-div');
     expect(dueDateDiv).toBeInTheDocument();
     expect(dueDateDiv).toHaveTextContent(
-      `${messages.dueLabel.defaultMessage} ${subsection.dueDate}`,
+      `${messages.dueLabel.defaultMessage} 27 Aug 2026, 07:00 ${timezoneLabel}`,
     );
     // self paced weeks should not be visible as
     // isSelfPaced is false as well as isCustomRelativeDatesActive is false
