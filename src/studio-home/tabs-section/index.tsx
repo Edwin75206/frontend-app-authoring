@@ -2,8 +2,6 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import PropTypes from 'prop-types';
 import {
-  Badge,
-  Stack,
   Tab,
   Tabs,
 } from '@openedx/paragon';
@@ -125,12 +123,7 @@ const TabsSection = ({
         <Tab
           key={TABS_LIST.libraries}
           eventKey={TABS_LIST.libraries}
-          title={(
-            <Stack gap={2} direction="horizontal">
-              {intl.formatMessage(messages.librariesTabTitle)}
-              <Badge variant="info">{intl.formatMessage(messages.librariesV2TabBetaBadge)}</Badge>
-            </Stack>
-          )}
+          title={intl.formatMessage(messages.librariesTabTitle)}
         >
           <LibrariesV2Tab />
         </Tab>,

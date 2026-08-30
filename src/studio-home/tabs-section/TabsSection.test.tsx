@@ -33,8 +33,7 @@ const courseApiLink = `${getApiBaseUrl()}/api/contentstore/v1/home/courses`;
 const courseApiLinkV2 = `${getApiBaseUrl()}/api/contentstore/v2/home/courses`;
 const libraryApiLink = `${getApiBaseUrl()}/api/contentstore/v1/home/libraries`;
 
-// The Libraries v2 tab title contains a badge, so we need to use regex to match its tab text.
-const librariesBetaTabTitle = /Libraries Beta/;
+const librariesTabTitle = tabMessages.librariesTabTitle.defaultMessage;
 
 const tabSectionComponent = (overrideProps) => (
   <TabsSection
@@ -93,7 +92,8 @@ describe('<TabsSection />', () => {
 
     expect(screen.getByRole('tab', { name: tabMessages.coursesTabTitle.defaultMessage })).toBeInTheDocument();
 
-    expect(screen.getByRole('tab', { name: librariesBetaTabTitle })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: librariesTabTitle })).toBeInTheDocument();
+    expect(screen.queryByText(tabMessages.librariesV2TabBetaBadge.defaultMessage)).not.toBeInTheDocument();
 
     expect(screen.getByRole('tab', { name: tabMessages.legacyLibrariesTabTitle.defaultMessage })).toBeInTheDocument();
 
@@ -124,7 +124,7 @@ describe('<TabsSection />', () => {
     await executeThunk(fetchStudioHomeData(), store.dispatch);
 
     expect(screen.getByText(tabMessages.librariesTabTitle.defaultMessage)).toBeInTheDocument();
-    const librariesTab = screen.getByRole('tab', { name: librariesBetaTabTitle });
+    const librariesTab = screen.getByRole('tab', { name: librariesTabTitle });
     expect(librariesTab).toBeInTheDocument();
     // Check Tab.eventKey
     expect(librariesTab).toHaveAttribute('data-rb-event-key', 'libraries');
@@ -305,7 +305,7 @@ describe('<TabsSection />', () => {
 
       expect(screen.getByRole('tab', { name: tabMessages.coursesTabTitle.defaultMessage })).toBeInTheDocument();
 
-      expect(screen.getByRole('tab', { name: librariesBetaTabTitle })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: librariesTabTitle })).toBeInTheDocument();
 
       expect(screen.getByRole('tab', { name: tabMessages.legacyLibrariesTabTitle.defaultMessage })).toBeInTheDocument();
 
@@ -339,7 +339,7 @@ describe('<TabsSection />', () => {
       axiosMock.onGet(getStudioHomeApiUrl()).reply(200, generateGetStudioHomeDataApiResponse());
       await executeThunk(fetchStudioHomeData(), store.dispatch);
 
-      const librariesTab = screen.getByRole('tab', { name: librariesBetaTabTitle });
+      const librariesTab = screen.getByRole('tab', { name: librariesTabTitle });
       fireEvent.click(librariesTab);
 
       expect(librariesTab).toHaveClass('active');
@@ -365,7 +365,7 @@ describe('<TabsSection />', () => {
       await executeThunk(fetchLibraryData(), store.dispatch);
 
       // Libraries v2 tab should not be shown
-      expect(screen.queryByRole('tab', { name: librariesBetaTabTitle })).toBeNull();
+      expect(screen.queryByRole('tab', { name: librariesTabTitle })).toBeNull();
 
       const librariesTab = screen.getByRole('tab', { name: tabMessages.librariesTabTitle.defaultMessage });
       fireEvent.click(librariesTab);
@@ -385,7 +385,7 @@ describe('<TabsSection />', () => {
       // Libraries v1 tab should not be shown
       expect(screen.queryByText(tabMessages.legacyLibrariesTabTitle.defaultMessage)).toBeNull();
 
-      const librariesTab = screen.getByRole('tab', { name: librariesBetaTabTitle });
+      const librariesTab = screen.getByRole('tab', { name: librariesTabTitle });
       fireEvent.click(librariesTab);
 
       expect(librariesTab).toHaveClass('active');
@@ -410,7 +410,7 @@ describe('<TabsSection />', () => {
       axiosMock.onGet(getStudioHomeApiUrl()).reply(200, generateGetStudioHomeDataApiResponse());
       await executeThunk(fetchStudioHomeData(), store.dispatch);
 
-      const librariesTab = screen.getByRole('tab', { name: librariesBetaTabTitle });
+      const librariesTab = screen.getByRole('tab', { name: librariesTabTitle });
       fireEvent.click(librariesTab);
 
       expect(librariesTab).toHaveClass('active');
@@ -452,7 +452,7 @@ describe('<TabsSection />', () => {
       axiosMock.onGet(getStudioHomeApiUrl()).reply(200, generateGetStudioHomeDataApiResponse());
       await executeThunk(fetchStudioHomeData(), store.dispatch);
 
-      const librariesTab = screen.getByRole('tab', { name: librariesBetaTabTitle });
+      const librariesTab = screen.getByRole('tab', { name: librariesTabTitle });
       fireEvent.click(librariesTab);
 
       expect(librariesTab).toHaveClass('active');
