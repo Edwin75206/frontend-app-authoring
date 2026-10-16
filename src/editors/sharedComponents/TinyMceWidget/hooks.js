@@ -275,6 +275,7 @@ export const editorConfig = ({
   initializeEditor,
   openImgModal,
   openSourceCodeModal,
+  openPdfModal,
   setSelection,
   updateContent,
   content,
@@ -306,6 +307,7 @@ export const editorConfig = ({
     initialValue: editorContentHtml || '',
     init: {
       ...config,
+      academusPdfOpen: openPdfModal,
       skin: false,
       content_css: false,
       content_style: tinyMCEStyles + a11ycheckerCss,

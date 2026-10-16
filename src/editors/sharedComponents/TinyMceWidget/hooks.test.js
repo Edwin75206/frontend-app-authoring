@@ -5,6 +5,7 @@ import { MockUseState } from '../../testUtils';
 import * as tinyMCE from '../../data/constants/tinyMCE';
 import { keyStore } from '../../utils';
 import pluginConfig from './pluginConfig';
+import { pdfHtml } from '../PdfUploadModal/utils';
 // This 'module' self-import hack enables mocking during tests.
 // See src/editors/decisions/0005-internal-editor-testability-decisions.md. The whole approach to how hooks are tested
 // should be re-thought and cleaned up to avoid this pattern.
@@ -215,6 +216,41 @@ describe('TinyMceEditor hooks', () => {
       });
     });
     describe('setAssetToStaticUrl', () => {
+      it.each([
+        'TAREA_DE_ESPAÑOL_I_DEL_05_AL_09_DE_OCTUBRE.pdf',
+        'Lección_東京.pdf',
+        'TAREA_DE_ESPA%C3%91OL.pdf',
+      ])('preserves the returned asset filename through PDF insertion, save and reopen: %s', filename => {
+        const learningContextId = 'course-v1:Unimec+CPSEC1AESP+2027';
+        const url = `/asset-v1:Unimec+CPSEC1AESP+2027+type@asset+block@${filename}`;
+        const lmsEndpointUrl = getConfig().LMS_BASE_URL;
+        const inserted = pdfHtml({ id: url.slice(1), url }, filename, '700');
+        const saved = module.setAssetToStaticUrl({ editorValue: inserted, lmsEndpointUrl });
+        const decodedFilename = decodeURIComponent(filename);
+        const frame = document.createElement('div');
+        frame.innerHTML = saved;
+        expect(frame.querySelector('iframe').getAttribute('src')).toBe(`/static/${decodedFilename}`);
+        expect(frame.querySelector('iframe').getAttribute('data-academus-pdf')).toBe('true');
+        const reopened = module.replaceStaticWithAsset({
+          initialContent: saved, learningContextId, editorType: 'text', lmsEndpointUrl,
+        });
+        frame.innerHTML = reopened;
+        expect(decodeURIComponent(frame.querySelector('iframe').getAttribute('src'))).toBe(decodeURIComponent(url));
+        expect(module.setAssetToStaticUrl({ editorValue: reopened, lmsEndpointUrl })).toBe(saved);
+      });
+
+      it('saves the versioned URL returned by Studio as a decoded portable filename', () => {
+        const editorValue = '<iframe src="/assets/courseware/v1/16606eb25199c837ca065779d598a90c/asset-v1:Unimec+CPSEC1AESP+2027+type@asset+block/TAREA_DE_ESPA%C3%91OL_I_DEL_05_AL_09_DE_OCTUBRE.pdf" data-academus-pdf="true"></iframe>';
+        expect(module.setAssetToStaticUrl({ editorValue, lmsEndpointUrl: getConfig().LMS_BASE_URL }))
+          .toBe('<iframe src="/static/TAREA_DE_ESPAÑOL_I_DEL_05_AL_09_DE_OCTUBRE.pdf" data-academus-pdf="true"></iframe>');
+      });
+
+      it('retains a literal percent sign that cannot be URI decoded', () => {
+        const editorValue = `<a href="/${baseAssetUrl}@100%.pdf">Download PDF</a>`;
+        expect(module.setAssetToStaticUrl({ editorValue, lmsEndpointUrl: getConfig().LMS_BASE_URL }))
+          .toBe('<a href="/static/100%.pdf">Download PDF</a>');
+      });
+
       it('returns content with updated img links', () => {
         const editorValue = `<img src="/${baseAssetUrl}/soME_ImagE_URl1"/> <a href="/${baseAssetUrl}@soMEImagEURl">testing link</a>`;
         const lmsEndpointUrl = getConfig().LMS_BASE_URL;

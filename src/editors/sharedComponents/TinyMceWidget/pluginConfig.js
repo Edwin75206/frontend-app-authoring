@@ -1,10 +1,14 @@
 import { StrictDict } from '../../utils';
 import { buttons, plugins } from '../../data/constants/tinyMCE';
+import { formattingOptions, formattingPlugins, formattingToolbar } from './textFormatting';
 
 const mapToolbars = toolbars => toolbars.map(toolbar => toolbar.join(' ')).join(' | ');
 
 const pluginConfig = ({ isLibrary, placeholder, editorType }) => {
+  const courseText = editorType === 'text' && !isLibrary;
   const image = isLibrary ? '' : plugins.image;
+  const pdf = editorType === 'text' && !isLibrary ? 'academuspdf' : '';
+  const pdfButtons = pdf ? 'academuspdf academusremovepdf' : '';
   const imageTools = isLibrary ? '' : plugins.imagetools;
   const imageUploadButton = isLibrary ? '' : buttons.imageUploadButton;
   const editImageSettings = isLibrary ? '' : buttons.editImageSettings;
@@ -35,9 +39,11 @@ const pluginConfig = ({ isLibrary, placeholder, editorType }) => {
         plugins.a11ychecker,
         plugins.powerpaste,
         plugins.embediframe,
+        pdf,
+        courseText ? formattingPlugins : '',
       ].join(' '),
-      menubar: false,
-      toolbar: toolbar ? mapToolbars([
+      menubar: courseText ? formattingOptions.menubar : false,
+      toolbar: courseText ? formattingToolbar : toolbar && mapToolbars([
         [buttons.undo, buttons.redo],
         [buttons.formatSelect],
         [labelButton],
@@ -54,10 +60,10 @@ const pluginConfig = ({ isLibrary, placeholder, editorType }) => {
           buttons.outdent,
           buttons.indent,
         ],
-        [imageUploadButton, buttons.link, buttons.unlink, buttons.blockQuote, buttons.codeBlock],
+        [imageUploadButton, pdfButtons, buttons.link, buttons.unlink, buttons.blockQuote, buttons.codeBlock],
         [buttons.table, buttons.emoticons, buttons.charmap, buttons.hr],
         [buttons.removeFormat, codeButton, buttons.a11ycheck, buttons.embediframe],
-      ]) : false,
+      ]),
       imageToolbar: mapToolbars([
         // [buttons.rotate.left, buttons.rotate.right],
         // [buttons.flip.horiz, buttons.flip.vert],
@@ -104,6 +110,7 @@ const pluginConfig = ({ isLibrary, placeholder, editorType }) => {
         powerpaste_word_import: 'prompt',
         powerpaste_html_import: 'prompt',
         powerpaste_googledoc_import: 'prompt',
+        ...(courseText ? formattingOptions : {}),
       },
     })
   );

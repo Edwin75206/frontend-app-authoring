@@ -1,5 +1,13 @@
 const getLocatorSafeName = ({ displayName }) => {
-  const locatorSafeName = displayName.replace(/[^\w.%-]/gm, '');
+  let decodedName = displayName;
+  try {
+    // Studio renders encoded URLs; store the filename, so it is not encoded twice.
+    decodedName = decodeURIComponent(displayName);
+  } catch (error) {
+    // A literal percent sign in an asset name need not be URI encoded.
+  }
+  // Asset keys can contain Unicode letters (for example Ñ); preserve them on save.
+  const locatorSafeName = decodedName.replace(/[^\p{L}\p{N}_.%-]/gu, '');
   return locatorSafeName;
 };
 

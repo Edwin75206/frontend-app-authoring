@@ -1,0 +1,37 @@
+.academus-pdf-modal {
+  &.pgn__modal { max-width: 760px; width: calc(100vw - 32px); }
+  .pgn__modal-header, .pgn__modal-footer { padding-top: 16px; padding-bottom: 16px; }
+  .pgn__dropzone {
+    height: 160px;
+    min-height: 160px;
+    border: 2px dashed #60758a;
+    border-radius: 12px;
+    cursor: pointer;
+    background: #f7f9fb;
+    &:hover, &:focus-visible, &.pgn__dropzone-active {
+      border-color: #145b9c;
+      background: #edf5fc;
+      outline: 2px solid #145b9c;
+      outline-offset: 3px;
+    }
+  }
+  .academus-pdf-icon { width: 48px; height: 48px; color: #145b9c; }
+  .academus-pdf-existing-list { max-height: 200px; overflow-y: auto; }
+  @media (max-width: 767.98px) {
+    .pgn__tabs .nav-link { padding: 8px; font-size: 14px; }
+  }
+  .academus-pdf-file {
+    padding: 12px 16px;
+    border: 1px solid #cbd5df;
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+    background: #f7f9fb;
+  }
+}
+
+.pgn__modal-content-container > .pgn__modal.academus-pdf-modal.pgn__modal-fullscreen {
+  position: relative;
+  height: auto;
+  max-height: calc(100vh - 32px);
+  margin: 16px;
+}

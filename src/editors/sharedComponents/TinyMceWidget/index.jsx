@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { Editor } from '@tinymce/tinymce-react';
 import { getConfig } from '@edx/frontend-platform';
@@ -7,12 +7,17 @@ import 'tinymce';
 import 'tinymce/themes/silver';
 import 'tinymce/skins/ui/oxide/skin.css';
 import 'tinymce/icons/default';
+import 'tinymce/plugins/searchreplace';
+import 'tinymce/plugins/fullscreen';
+import 'tinymce/plugins/preview';
 import 'frontend-components-tinymce-advanced-plugins';
 
 import ImageUploadModal from '../ImageUploadModal';
 import SourceCodeModal from '../SourceCodeModal';
+import PdfUploadModal from '../PdfUploadModal';
 import * as hooks from './hooks';
 import './customTinyMcePlugins/embedIframePlugin';
+import './customTinyMcePlugins/insertPdfPlugin';
 
 export { prepareEditorRef } from './hooks';
 
@@ -51,9 +56,21 @@ const TinyMceWidget = ({
   const { isSourceCodeOpen, openSourceCodeModal, closeSourceCodeModal } = hooks.sourceCodeModalToggle(editorRef);
   const { imagesRef } = hooks.useImages({ images, editorContentHtml });
   const imageSelection = hooks.selectedImage(null);
+  const [pdfContext, setPdfContext] = useState(null);
 
   return (
     <>
+      {editorType === 'text' && !isLibrary && pdfContext && (
+        <PdfUploadModal
+          courseId={learningContextId}
+          editor={pdfContext.editor}
+          bookmark={pdfContext.bookmark}
+          close={() => {
+            setPdfContext(null);
+            editorRef.current?.focus();
+          }}
+        />
+      )}
       {!isLibrary && (
         <ImageUploadModal
           isOpen={isImgOpen}
@@ -80,6 +97,7 @@ const TinyMceWidget = ({
           ...hooks.editorConfig({
             openImgModal,
             openSourceCodeModal,
+            openPdfModal: setPdfContext,
             editorType,
             editorRef,
             isLibrary,
